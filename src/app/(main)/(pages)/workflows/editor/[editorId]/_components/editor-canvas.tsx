@@ -1,9 +1,9 @@
 "use client";
-
 import { EditorCanvasCardType, EditorNodeType } from "@/lib/types";
 import { useEditor } from "@/providers/editor-provider";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  addEdge,
+  ReactFlow,
   Background,
   Connection,
   Controls,
@@ -11,34 +11,39 @@ import {
   EdgeChange,
   MiniMap,
   NodeChange,
-  ReactFlow,
   ReactFlowInstance,
   applyNodeChanges,
-  applyEdgeChanges
+  applyEdgeChanges,
+  addEdge,
 } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import '@xyflow/react/dist/style.css';
 import EditorCanvasCardSingle from "./editor-canvas-card-single";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { toast } from "sonner";
-import { EditorCanvasDefaultCardTypes } from "@/lib/constant";
 import { usePathname } from "next/navigation";
 import { v4 } from "uuid";
+import { EditorCanvasDefaultCardTypes } from "@/lib/constant";
 import FlowInstance from "./flow-instance";
 import EditorCanvasSidebar from "./editor-canvas-sidebar";
+import { onGetNodesEdges } from "../../../_actions/workflow-connections";
+
+type Props = {};
 
 const initialNodes: EditorNodeType[] = [];
 
 const initialEdges: { id: string; source: string; target: string }[] = [];
-
-type Props = {};
 
 const EditorCanvas = (props: Props) => {
   const { dispatch, state } = useEditor();
   const [nodes, setNodes] = useState(initialNodes);
   const [edges, setEdges] = useState(initialEdges);
   const [isWorkFlowLoading, setIsWorkFlowLoading] = useState<boolean>(false);
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance>();
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance>();
   const pathname = usePathname();
 
   const onDragOver = useCallback((event: any) => {
@@ -159,6 +164,21 @@ const EditorCanvas = (props: Props) => {
     []
   );
 
+  const onGetWorkFlow = async () => {
+    setIsWorkFlowLoading(true);
+    const response = await onGetNodesEdges(pathname.split("/").pop()!);
+    if (response) {
+      setEdges(JSON.parse(response.edges!));
+      setNodes(JSON.parse(response.nodes!));
+      setIsWorkFlowLoading(false);
+    }
+    setIsWorkFlowLoading(false);
+  };
+
+  useEffect(() => {
+    onGetWorkFlow();
+  }, []);
+
   return (
     <ResizablePanelGroup direction="horizontal">
       <ResizablePanel defaultSize={70}>
@@ -196,7 +216,7 @@ const EditorCanvas = (props: Props) => {
                 edges={edges}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
-                // @ts-ignore
+                //@ts-ignore
                 onInit={setReactFlowInstance}
                 fitView
                 onClick={handleClickCanvas}
@@ -221,10 +241,7 @@ const EditorCanvas = (props: Props) => {
         </div>
       </ResizablePanel>
       <ResizableHandle />
-      <ResizablePanel
-        defaultSize={40}
-        className="relative sm:block"
-      >
+      <ResizablePanel defaultSize={40} className="relative sm:block">
         {isWorkFlowLoading ? (
           <div className="absolute flex h-full w-full items-center justify-center">
             <svg
@@ -245,10 +262,7 @@ const EditorCanvas = (props: Props) => {
             </svg>
           </div>
         ) : (
-          <FlowInstance
-            edges={edges}
-            nodes={nodes}
-          >
+          <FlowInstance edges={edges} nodes={nodes}>
             <EditorCanvasSidebar nodes={nodes} />
           </FlowInstance>
         )}
